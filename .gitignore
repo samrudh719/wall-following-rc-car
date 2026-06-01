@@ -1,0 +1,18 @@
+# PlatformIO
+.pio/
+.vscode/
+
+# ROS2
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+
+# Linux
+*.swp
+
+# Windows
+*.exe
