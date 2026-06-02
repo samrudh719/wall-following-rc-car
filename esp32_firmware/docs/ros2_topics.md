@@ -10,10 +10,10 @@ The system uses ROS2 topics for communication between telemetry and control node
 
 | Topic | Type | Description |
 |---|---|---|
-| /sonar | sensor_msgs/Range | Ultrasonic wall distance |
+| /wall_distance | sensor_msgs/Range | Ultrasonic wall distance |
 | /cmd_vel | geometry_msgs/Twist | Velocity commands |
-| /left_encoder | std_msgs/Int32 | Left wheel encoder ticks |
-| /right_encoder | std_msgs/Int32 | Right wheel encoder ticks |
+| /left_encoder_ticks | std_msgs/Int64 | Left wheel encoder ticks |
+| /right_encoder_ticks | std_msgs/Int64 | Right wheel encoder ticks |
 
 ---
 
@@ -47,7 +47,7 @@ Responsibilities:
 ## wall_follower_node
 
 Responsibilities:
-- subscribes to sonar topic
+- subscribes to wall_distance topic
 - computes PID correction
 - publishes cmd_vel
 
@@ -58,7 +58,6 @@ Responsibilities:
 Responsibilities:
 - keyboard teleoperation
 - publishes manual cmd_vel
-- mode switching
 
 ---
 

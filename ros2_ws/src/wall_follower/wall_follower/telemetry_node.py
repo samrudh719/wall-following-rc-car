@@ -13,6 +13,9 @@ TELEMETRY_PATTERN = re.compile(
     r'LEFT:(?P<left>-?\d+),'
     r'RIGHT:(?P<right>-?\d+)$'
 )
+MAX_SERIAL_BUFFER_SIZE = 1024
+MIN_RANGE_METERS = 0.02
+MAX_RANGE_METERS = 4.0
 
 
 class TelemetryNode(Node):
@@ -24,6 +27,7 @@ class TelemetryNode(Node):
         self.declare_parameter('baudrate', 115200)
         self.serial_connection = None
         self.serial_buffer = bytearray()
+        self.last_command = 's'
 
         self.distance_publisher = self.create_publisher(
             Range, 'wall_distance', 10
@@ -40,6 +44,7 @@ class TelemetryNode(Node):
 
         self.create_timer(1.0, self.connect_serial)
         self.create_timer(0.02, self.read_serial)
+        self.create_timer(0.1, self.write_last_command)
 
     def connect_serial(self):
         if self.serial_connection is not None:
@@ -74,6 +79,13 @@ class TelemetryNode(Node):
 
             self.serial_buffer.extend(self.serial_connection.read(available))
 
+            if len(self.serial_buffer) > MAX_SERIAL_BUFFER_SIZE:
+                self.get_logger().warning(
+                    'Discarding oversized ESP32 serial buffer'
+                )
+                self.serial_buffer.clear()
+                return
+
             while b'\n' in self.serial_buffer:
                 line, _, remainder = self.serial_buffer.partition(b'\n')
                 self.serial_buffer = bytearray(remainder)
@@ -87,15 +99,22 @@ class TelemetryNode(Node):
         if match is None:
             return
 
-        distance = Range()
-        distance.header.stamp = self.get_clock().now().to_msg()
-        distance.header.frame_id = 'ultrasonic_sensor'
-        distance.radiation_type = Range.ULTRASOUND
-        distance.field_of_view = 0.26
-        distance.min_range = 0.02
-        distance.max_range = 4.0
-        distance.range = float(match.group('distance')) / 100.0
-        self.distance_publisher.publish(distance)
+        distance_meters = float(match.group('distance')) / 100.0
+
+        if MIN_RANGE_METERS <= distance_meters <= MAX_RANGE_METERS:
+            distance = Range()
+            distance.header.stamp = self.get_clock().now().to_msg()
+            distance.header.frame_id = 'ultrasonic_sensor'
+            distance.radiation_type = Range.ULTRASOUND
+            distance.field_of_view = 0.26
+            distance.min_range = MIN_RANGE_METERS
+            distance.max_range = MAX_RANGE_METERS
+            distance.range = distance_meters
+            self.distance_publisher.publish(distance)
+        else:
+            self.get_logger().warning(
+                f'Ignoring out-of-range distance: {distance_meters:.2f} m'
+            )
 
         left_ticks = Int64()
         left_ticks.data = int(match.group('left'))
@@ -115,23 +134,34 @@ class TelemetryNode(Node):
         else:
             command = 'w'
 
-        self.write_command(command)
+        self.last_command = command
+        self.write_last_command()
 
-    def write_command(self, command):
+    def write_last_command(self):
         if self.serial_connection is None:
             return
 
         try:
-            self.serial_connection.write(command.encode('ascii'))
+            self.serial_connection.write(self.last_command.encode('ascii'))
         except serial.SerialException as error:
             self.get_logger().error(f'ESP32 serial write failed: {error}')
             self.close_serial()
 
     def close_serial(self):
         if self.serial_connection is not None:
-            self.serial_connection.close()
+            try:
+                self.serial_connection.write(b's')
+            except serial.SerialException:
+                pass
+
+            try:
+                self.serial_connection.close()
+            except serial.SerialException:
+                pass
+
             self.serial_connection = None
             self.serial_buffer.clear()
+            self.last_command = 's'
 
     def destroy_node(self):
         self.close_serial()

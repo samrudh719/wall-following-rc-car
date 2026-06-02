@@ -20,6 +20,7 @@
 #define WALL_DISTANCE_CM           30.0f
 
 #define CONTROL_INTERVAL_MS        50
+#define COMMAND_TIMEOUT_MS         500
 #define ULTRASONIC_TIMEOUT_US       30000UL
 
 #define SERIAL_BAUDRATE            115200

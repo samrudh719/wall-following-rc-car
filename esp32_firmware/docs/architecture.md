@@ -59,9 +59,9 @@ DIST:31.2,LEFT:523,RIGHT:518
 
 | Topic | Description |
 |---|---|
-| /sonar | Ultrasonic distance |
-| /left_encoder | Left wheel encoder |
-| /right_encoder | Right wheel encoder |
+| /wall_distance | Ultrasonic distance |
+| /left_encoder_ticks | Left wheel encoder |
+| /right_encoder_ticks | Right wheel encoder |
 | /cmd_vel | Velocity commands |
 
 ---
